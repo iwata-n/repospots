@@ -23,11 +23,14 @@ commits = repo.iter_commits(args.branch, max_count=args.max_commit)
 
 authors = dict()
 files = dict()
+total_commits = 0
 
 for commit in commits:
     # マージコミットは無視する
     if len(commit.parents) > 1:
         continue
+
+    total_commits += 1
 
     author = commit.author.name
 
@@ -47,6 +50,8 @@ for commit in commits:
                 files[file]['author'][author] = 1
         else:
             files[file] = {'author': {author: 1}, 'change_count':1}
+
+print("tolat commits=", total_commits)
 
 print("change authors top", args.top)
 change_authors = sorted(files.items(), key = lambda x: len(x[1]['author']), reverse=True)
