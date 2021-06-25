@@ -17,9 +17,6 @@ print(args)
 exclude = sum(args.exclude, [])
 path = args.path
 
-print("path =", path)
-print("exclude =", exclude)
-
 repo = Repo(path)
 
 commits = repo.iter_commits(args.branch, max_count=args.max_commit)
@@ -57,7 +54,7 @@ for k in change_authors[0:args.top]:
     a = k[1]['author']
     print(" ", k[0], 'author_count =', len(a), a)
 
-print()
+print("")
 print("change count top", args.top)
 change_count = sorted(files.items(), key = lambda x: x[1]['change_count'], reverse=True)
 for k in change_count[0:args.top]:
