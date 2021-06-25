@@ -1,0 +1,5 @@
+#!/bin/sh
+
+SCRIPT_DIR=$(cd $(dirname $0); pwd)
+
+docker run --rm repospots -v=$PWD:/work python repospots.py
