@@ -1,0 +1,5 @@
+#!/bin/sh
+
+SCRIPT_DIR=$(cd $(dirname $0); pwd)
+echo $SCRIPT_DIR
+docker build -t repospots $SCRIPT_DIR/../
