@@ -6,6 +6,7 @@ from git import Repo
 parser = argparse.ArgumentParser(description='Find bugspot in git repo.')
 parser.add_argument('path', default='./', type=str,
                     help='repository path')
+parser.add_argument('--branch', default='master', dest='branch', type=str)
 parser.add_argument('--max_commit', default=None, dest='max_commit', type=int)
 parser.add_argument('--exclude', nargs='+', dest='exclude', action='append', type=str)
 parser.add_argument('--top', default=-1, dest='top', type=int)
@@ -22,7 +23,7 @@ print("exclude =", exclude)
 
 repo = Repo(path)
 
-commits = repo.iter_commits('master', max_count=args.max_commit)
+commits = repo.iter_commits(args.branch, max_count=args.max_commit)
 
 authors = dict()
 files = dict()
