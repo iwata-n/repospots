@@ -1,9 +1,54 @@
 import argparse
+from typing import List
 from git.objects.commit import Commit
 import yaml
 import json
 import fnmatch
 from git import Repo, config
+
+class CommitFile():
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self._commits = []
+        self._authors = []
+        self._large_commit = {}
+
+    def to_dict(self):
+        return {
+            'path': self.path,
+            'authors': self.authors(),
+            'commit_count': self.commit_count(),
+            'author_count': self.author_count(),
+            'large_commit_count': len(self._large_commit),
+            'large_commit': self._large_commit,
+            #'commit': {c.hexsha: {'total': c.stats.total} for c in self._commits},
+            'risk': self.risk(),
+        }
+
+    def add_commit(self, commit: Commit):
+        self._commits.append(commit)
+        self._authors.append(commit.author.name)
+
+    def add_large_commit(self, commit: Commit):
+        self._large_commit[commit.hexsha] = commit.stats.total['lines']
+
+    def authors(self) -> List:
+        return list(set(self._authors))
+
+    def commit_count(self) -> int:
+        return len(self._commits)
+
+    def author_count(self) -> int:
+        return len(self.authors())
+
+    def risk(self) -> float:
+        return self.commit_count() * self.author_count()
+
+class CommitFileJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, CommitFile):
+            return o.to_dict()
+        return super().default(o)
 
 def parse_repo(path, branch, depth, exclude, large_commit_lines):
     repo = Repo(path)
@@ -13,7 +58,9 @@ def parse_repo(path, branch, depth, exclude, large_commit_lines):
     authors = dict()
     files = dict()
     total_commits = 0
-    large_commit = list()
+
+    # exlude rename
+    exclude.append('**{* => *}')
 
     for commit in commits:
         # マージコミットは無視する
@@ -22,6 +69,8 @@ def parse_repo(path, branch, depth, exclude, large_commit_lines):
 
         total_commits += 1
 
+        is_large_commit = commit.stats.total['lines'] > large_commit_lines
+
         author = commit.author.name
 
         if author in authors:
@@ -29,36 +78,17 @@ def parse_repo(path, branch, depth, exclude, large_commit_lines):
         else:
             authors[author] = 1
 
-        if commit.stats.total['lines'] > large_commit_lines:
-            large_commit.append({'hash': commit.hexsha, 'total': commit.stats.total})
-
         for file in commit.stats.files:
             if any([fnmatch.fnmatch(file, e) for e in exclude]):
                 continue
 
-            if file in files:
-                f = files[file]
-                f['commit_hash'].append(commit.hexsha)
-                f['authored_datetime'].append(commit.authored_datetime.strftime("%Y/%m/%d %H:%M:%S"))
-                if author in f['author']:
-                    f['author'][author] += 1
-                else:
-                    f['author'][author] = 1
-                f['commit_count'] += 1
-                f['author_count'] = len(f['author'])
-                files[file] = f
-            else:
-                files[file] = {
-                    'authored_datetime': [commit.authored_datetime.strftime("%Y/%m/%d %H:%M:%S")],
-                    'author': {
-                        author: 1
-                    },
-                    'author_count': 1,
-                    'commit_count': 1,
-                    'commit_hash': [commit.hexsha]
-                }
+            if file not in files:
+                files[file] = CommitFile(file)
 
-    print(large_commit)
+            files[file].add_commit(commit)
+
+            if is_large_commit:
+                files[file].add_large_commit(commit)
 
     return total_commits, files, authors
 
@@ -86,33 +116,6 @@ def print_summary(result):
     print(f" total files={result['total_files']}")
     print(f" authors={result['authors']}")
     print('')
-
-def print_order_by_number_of_authors(files, top):
-    print(f"Order by number of authors. top:{top}")
-    change_authors = sorted(files.items(), key = lambda x: len(x[1]['author']), reverse=True)
-    for k in change_authors[0:top]:
-        a = k[1]['author']
-        print(f" {k[0]} author_count={len(a)} {a}")
-    print('')
-
-def print_order_by_change_count(files, top):
-    print(f"Order by change count top{top}")
-    change_count = sorted(files.items(), key = lambda x: x[1]['change_count'], reverse=True)
-    for k in change_count[0:top]:
-        print(f" {k[0]} count={k[1]['change_count']}")
-    print('')
-
-def print_no_employee(files, employee):
-    d = {x[0]: list(x[1]['author'].keys()) for x in files.items()}
-    filter_list = filter(lambda x: not all(y in employee for y in x[1]), d.items())
-    for i in filter_list:
-        print(i)
-
-def calc_risk(file):
-    len(file['authors'])
-
-def only_one_author(files):
-    return filter(lambda x: len(x[1]['author']) == 1 and x[1]['change_count'] > 1, files.items())
 
 def main():
     args = argument()
@@ -152,13 +155,12 @@ def main():
     print('')
 
     total_commits, files, authors = parse_repo(path, branch, depth, exclude, large_commit_lines)
-    result_files = calc_risk(files)
 
     result = {
         'total_commits': total_commits,
         'total_files': len(files),
         'authors': list(authors.keys()),
-        'files': result_files,
+        'files': files,
     }
 
     # print_summary(result)
@@ -172,7 +174,8 @@ def main():
     # a = filter(lambda x: 'iwata-n' in x[1]['author'], o)
     # print(json.dumps(list(a), sort_keys=True, indent=2))
 
-    print(json.dumps({'parameter': parameter, 'result': result}, sort_keys=True, indent=2))
+    #print(result)
+    print(json.dumps({'parameter': parameter, 'result': result}, sort_keys=True, indent=2, cls=CommitFileJSONEncoder))
 
 if __name__ == '__main__':
     main()
