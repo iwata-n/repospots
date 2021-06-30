@@ -4,6 +4,7 @@ from git.objects.commit import Commit
 import yaml
 import json
 import fnmatch
+import re
 from git import Repo
 
 class CommitFile():
@@ -12,7 +13,6 @@ class CommitFile():
         self._commits = []
         self._authors = []
         self._diff = {}
-        self._large_diff = {}
 
     def to_dict(self):
         return {
@@ -56,7 +56,7 @@ def parse(path, branch, depth, exclude):
     total_commits = 0
 
     # exlude rename
-    exclude.append('**{* => *}')
+    rename_re = re.compile(".*\{.* => .*\}.*")
 
     for commit in commits:
         # マージコミットは無視する
@@ -77,6 +77,9 @@ def parse(path, branch, depth, exclude):
             file_diff = file[1]
 
             if any([fnmatch.fnmatch(file_path, e) for e in exclude]):
+                continue
+
+            if rename_re.match(file_path):
                 continue
 
             if file_path not in files:
