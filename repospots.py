@@ -1,6 +1,7 @@
 import argparse
 from typing import Dict, List
 from git.objects.commit import Commit
+from git.refs.head import HEAD
 import yaml
 import json
 import fnmatch
@@ -44,6 +45,8 @@ class CommitFileJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, CommitFile):
             return o.to_dict()
+        if isinstance(o, HEAD):
+            return o.commit.hexsha
         return super().default(o)
 
 def parse(path, branch, depth, exclude):
@@ -87,7 +90,7 @@ def parse(path, branch, depth, exclude):
 
             files[file_path].add_commit(commit, file_diff)
 
-    return total_commits, files, authors
+    return total_commits, files, authors, repo.head
 
 def _load_config(path):
     with open(path, 'r') as yml:
@@ -153,12 +156,13 @@ def main():
         print(f" member={member}")
         print('')
 
-    total_commits, files, authors = parse(path, branch, depth, exclude)
+    total_commits, files, authors, head = parse(path, branch, depth, exclude)
 
     result = {
         'total_commits': total_commits,
         'total_files': len(files),
         'authors': list(authors.keys()),
+        'head': head,
         'files': files,
     }
 
