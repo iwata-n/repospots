@@ -98,16 +98,14 @@ def _load_config(path):
     return config
 
 def _argument():
-    parser = argparse.ArgumentParser(description='Find bugspot in git repo.')
+    parser = argparse.ArgumentParser(description='parse git repo.')
     parser.add_argument('path', default='./', type=str, help='repository path')
     parser.add_argument('--branch', default='master', dest='branch', type=str)
     parser.add_argument('--depth', default=None, dest='depth', type=int)
     parser.add_argument('--exclude', nargs='+', default=[], dest='exclude', action='append', type=str)
-    parser.add_argument('--top', default=-1, dest='top', type=int)
-    parser.add_argument('--member', nargs='+', dest='member', default=[], action='append', type=str)
     parser.add_argument('--config', dest='config', default='', type=str)
-    parser.add_argument('--output', dest='output', default='', type=str)
-    parser.add_argument('--show-summary', dest='show_summary', default=True, type=bool)
+    parser.add_argument('--output', dest='output', default='result.json', type=str)
+    parser.add_argument('--debug', '-d', action='store_true')
 
     return parser.parse_args()
 
@@ -116,33 +114,24 @@ def main():
     path = args.path
     branch = args.branch
     depth = args.depth
-    top = args.top
-    is_debug = False
+    is_debug = args.debug
     output_file = args.output
     output_console = True
     exclude = sum(args.exclude, [])
-    member = sum(args.member, [])
 
     if args.config:
         config = _load_config(args.config)
         branch = config['parse']['branch']
         depth = config['parse']['depth']
-        large_commit_lines = config['parse']['large_commit_lines']
-        top = config['output']['top']
         output_file = config['output']['file']
         output_console = config['output']['console']
-        is_debug = config['debug']
         exclude = config['parse']['file']['exclude']
-        member = config['parse']['member']
 
     parameter = {
         'path': path,
         'branch': branch,
         'depth': depth,
-        'large_commit_lines': large_commit_lines,
-        'top': top,
         'exclude': exclude,
-        'member': member
     }
 
     if is_debug:
@@ -150,10 +139,8 @@ def main():
         print(f" path={path}")
         print(f" branch={branch}")
         print(f" depth={depth}")
-        print(f" top={top}")
         print(f' output_file={output_file}')
         print(f" exclude={exclude}")
-        print(f" member={member}")
         print('')
 
     total_commits, files, authors, head = parse(path, branch, depth, exclude)
