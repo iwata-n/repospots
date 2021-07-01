@@ -1,0 +1,7 @@
+parse:
+  branch: master
+  depth: -1
+  file:
+    exclude:
+      - "**/*.sample"
+      - "comfig.yml"
